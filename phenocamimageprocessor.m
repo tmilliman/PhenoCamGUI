@@ -225,6 +225,8 @@ else                     % akward construction... change
         max_hour = max(handles.hour);
         mean_hour = round((min_hour + max_hour) / 2);
 
+	
+	% set range of "from" hours and "to" hours
         AM = min_hour : (mean_hour-1);
         PM = mean_hour : max_hour;
         
@@ -944,23 +946,42 @@ function menuloadroi_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[file,path] = uigetfile('*.mat','Load ROI...');
-% filename = strcat(path,'/',file);
-filename = strcat(path,handles.file_split,file);
+[file,path] = uigetfile({'*.tif', 'TIFF Images'; '*.mat','MAT Files'});
 
-% save data
-mask = load(filename);
-handles.mask = int8(mask.roiimg);
+% if user hits "cancel" button on uigetfile object then
+% file is empty
+if file
+  
+  % set file path
+  filename = strcat(path,handles.file_split,file);
+  % dbgstr=sprintf('MASK file: %s',file);
+  % disp(dbgstr);
 
-% hold is on for overplotting
-% getline grabbed coordinates and polygons
-hold on;
-    
-% get image size / nr ROI
-handles.nroi = size(mask.roiimg,3);
+  % check to see if this is a tiff file ... just look at filename
+  if isempty(strfind(file,'.tif'))
+    % 
+    % old .mat style
+    mask = load(filename);
+    roiimg = int8(mask.roiimg);
+  else
+    %
+    % new .tif style
+    roiimg = uint8(not(logical(imread(filename))));
+    mask.roiimg=roiimg;
+  end
 
-% for the number of nroi do
-for i=1:handles.nroi;
+  % save data
+  handles.mask = roiimg;
+
+  % hold is on for overplotting
+  % getline grabbed coordinates and polygons
+  hold on;
+
+  % get image size / nr ROI
+  handles.nroi = size(mask.roiimg,3);
+
+  % for the number of nroi do
+  for i=1:handles.nroi;
     
     % get polygon from mask
     loc = bwboundaries(handles.mask(:,:,i));
@@ -969,39 +990,40 @@ for i=1:handles.nroi;
     % grab polygon coordinates and dump in structure
     handles.xcoordinates(:,i).poly = loc(:,2);
     handles.ycoordinates(:,i).poly = loc(:,1);
-
+  
     % get polygon center for plotting labels
     handles.xcenter(:,i) = mean(handles.xcoordinates(:,i).poly);
     handles.ycenter(:,i) = mean(handles.ycoordinates(:,i).poly);
-
+  
     % overplot the polygon (see hold on above)
     % and text label
-    plot(handles.xcoordinates(:,i).poly,handles.ycoordinates(:,i).poly,'Color',handles.cmap(i));
+    plot(handles.xcoordinates(:,i).poly,handles.ycoordinates(:,i).poly,'Color',handles.cmap(i),'LineWidth',2);
     text(handles.xcenter(:,i), handles.ycenter(:,i), num2str(i), 'Color',handles.cmap(i), 'FontWeight','Bold');
+    
+  end
+
+  % activate clear ROI button
+  set(handles.clearroibutton,'Enable','on');
+
+  % activate from popup dialogues
+  set(handles.frompopup,'Enable','on');
+
+  % disable Set ROI button until reset
+  set(handles.setroibutton,'Enable','off');
+
+  % disable Set ROI button until reset
+  set(handles.setdirbutton,'Enable','off');
+
+  % disable Set ROI button until reset
+  set(handles.popuproi,'Enable','off');
+
+  hold off;
+
+  % pass all handles objects to the root / figure
+  % if you don't do this the handles won't update
+  guidata(hObject, handles);
 
 end
-
-% activate clear ROI button
-set(handles.clearroibutton,'Enable','on');
-
-% activate from popup dialogues
-set(handles.frompopup,'Enable','on');
-
-% disable Set ROI button until reset
-set(handles.setroibutton,'Enable','off');
-
-% disable Set ROI button until reset
-set(handles.setdirbutton,'Enable','off');
-
-% disable Set ROI button until reset
-set(handles.popuproi,'Enable','off');
-
-hold off;
-
-% pass all handles objects to the root / figure
-% if you don't do this the handles won't update
-guidata(hObject, handles);
-
 
 % --------------------------------------------------------------------
 function menusaveroi_Callback(hObject, eventdata, handles)
@@ -1009,14 +1031,28 @@ function menusaveroi_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[file,path] = uiputfile('*.mat','Save ROI...');
+[file,path] = uiputfile({'*.tif','TIFF Images'; '*.mat', '.MAT Files'});
 
+% if file has a value try to save ROI mask
 if file
+
+  % set file path from GUI inputs
   filename = strcat(path,handles.file_split,file);
   roiimg = handles.mask;
 
-  % save data
-  save(filename, 'roiimg');
+  if isempty(strfind(file,'.tif'))
+    %
+    % old .mat style
+    save(filename, 'roiimg');
+  else
+    %
+    % new .tif style
+    tmparr=uint8(not(logical(roiimg)));
+    tf_ones = tmparr==1;
+    tmparr(tf_ones)=255;
+    imwrite(tmparr,filename,'TIFF');
+  end
+  
 end
 
 % --------------------------------------------------------------------
