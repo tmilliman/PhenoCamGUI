@@ -90,7 +90,7 @@ handles.markertype=['. ';'o ';'^ '];
 % set directory name to empty
 handles.dir_name = [];
 
-% set dark threshold value default
+% set brightness threshold value default
 % this is the % below which pictures will be considered
 % to dark e.g. nighttime pictures and are excluded
 % from the analysis
@@ -1037,15 +1037,33 @@ if file
     rawdata = handles.results(:,:,i);
     smoothdata = handles.gccsmooth(:,:,i);
 
+    % set up headers
+    smooth_hdr={'year','doy','gcc'};
+    raw_hdr={'year','doy','dnr','dng','dnb','gcc'};
+    
+    % set line terminator
+    if ispc
+      newl='pc';
+    else
+      newl='unix';
+    end
+    
     % add year to smoothed data
     year = unique(handles.year);
     l = size(smoothdata,1);
     years = zeros(l,1);
     years(:,1) = year;
     smoothdata = [years, smoothdata];
-
-    dlmwrite(filenameraw,rawdata);
-    dlmwrite(filenamesmooth,smoothdata);
+    
+    % write 'raw' file with not threshold or smoothing
+    hdr=sprintf('%s,%s,%s,%s,%s,%s',raw_hdr{:});
+    dlmwrite(filenameraw,hdr,'delimiter','','newline',newl);
+    dlmwrite(filenameraw,rawdata,'-append','newline',newl);
+    
+    % write 'smooth' file
+    hdr=sprintf('%s,%s,%s',smooth_hdr{:});
+    dlmwrite(filenamesmooth,hdr,'delimiter','','newline',newl);
+    dlmwrite(filenamesmooth,smoothdata,'-append','newline',newl);
 
   end
 end
